@@ -1,0 +1,39 @@
+name: DB Migration Test
+
+on:
+  pull_request:
+    branches: [disabled] #this should only run as a ruleset workflow
+
+jobs:
+  db_migration_test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Perform database migration
+        if: ${{ success() }}
+        run: >
+          docker run --rm
+          -v ${{ github.workspace }}/sql:/flyway/sql
+          --network=host
+          flyway/flyway
+          -url=jdbc:postgresql://localhost:5432/postgres?sslmode=disable
+          -user=postgres
+          -password=password
+          migrate

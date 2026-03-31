@@ -1,0 +1,21 @@
+name: Release Please Push
+
+on:
+  workflow_call:
+
+jobs:
+  release-please-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a token for using with release-please
+        id: release-please-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_RELEASE_PLEASE_ID }}
+          private-key: ${{ secrets.APP_RELEASE_PLEASE_PK }}
+
+      - uses: googleapis/release-please-action@v4
+        id: release_please
+        with:
+          token: ${{ steps.release-please-token.outputs.token }}
+          release-type: simple

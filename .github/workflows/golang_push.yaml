@@ -1,0 +1,108 @@
+name: Golang Push
+
+on:
+  workflow_call:
+
+jobs:
+  golang-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a token for using with release-please
+        id: release-please-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_RELEASE_PLEASE_ID }}
+          private-key: ${{ secrets.APP_RELEASE_PLEASE_PK }}
+
+      - uses: googleapis/release-please-action@v4
+        id: release_please
+        with:
+          token: ${{ steps.release-please-token.outputs.token }}
+          release-type: simple
+
+      #if we published a release, we will build it and upload it to AWS ECR --------------
+      - uses: actions/checkout@v4
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
+
+      - uses: actions/setup-go@v5
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
+        with:
+          go-version: ${{ vars.GOLANG_VERSION }}
+          cache: true
+
+      - run: go version
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
+
+      - name: Generate a token for accessing private repositories
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
+        id: private-repos-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_READ_ALL_REPOS_ID }}
+          private-key: ${{ secrets.APP_READ_ALL_REPOS_PK }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Grant access to private Go Modules
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
+        run: git config --global url."https://gustavonetoorg:${{ steps.private-repos-token.outputs.token }}@github.com/GustavoNetoOrg".insteadOf "https://github.com/GustavoNetoOrg"
+
+      - name: Get dependencies
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: go mod download
+
+      - name: Build Application (lambda)
+        if: ${{ success() && steps.release_please.outputs.release_created && startsWith(github.event.repository.name, 'lambda-go-') }}
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ./app ./cmd/main
+
+      - name: Build Application (normal)
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created && !(startsWith(github.event.repository.name, 'lambda-go-')) }}
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: go build -ldflags="-s -w" -o ./app ./cmd/main
+
+      - name: Remove .git directory
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
+        run: rm -r .git
+
+      - name: Remove any Dockerfiles
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: rm -f Dockerfile
+
+      - name: Download official Dockerfile for ecs-golang
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created && startsWith(github.event.repository.name, 'ecs-go-') }}
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: |
+          curl -o Dockerfile https://raw.githubusercontent.com/GustavoNetoOrg/.github-workflows/main/Dockerfile-ecs-golang
+
+      - name: Download official Dockerfile for lambda-golang
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created && startsWith(github.event.repository.name, 'lambda-go-') }}
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: |
+          curl -o Dockerfile https://raw.githubusercontent.com/GustavoNetoOrg/.github-workflows/main/Dockerfile-lambda-golang
+
+      - name: Configure AWS credentials
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ECR_WRITE_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_ECR_WRITE_KEY_VALUE }}
+          aws-region: ${{ vars.AWS_ECR_REGION_FOR_IMAGES }}
+
+      - name: Login to Amazon ECR
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push docker image to Amazon ECR
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.AWS_ECR_COMMON_REPOSITORY }}
+          IMAGE_NAME: ${{ github.event.repository.name }}
+          IMAGE_VERSION: v${{ steps.release_please.outputs.major }}.${{ steps.release_please.outputs.minor }}.${{ steps.release_please.outputs.patch }}
+        run: |
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_NAME-$IMAGE_VERSION .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_NAME-$IMAGE_VERSION

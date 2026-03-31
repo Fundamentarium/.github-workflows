@@ -1,0 +1,13 @@
+name: Web Test Build
+
+on:
+  pull_request:
+    branches: [disabled] #this should only run as a ruleset workflow
+
+jobs:
+  web-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      - run: npm run build
