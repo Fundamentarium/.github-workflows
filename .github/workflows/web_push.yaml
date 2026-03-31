@@ -1,0 +1,69 @@
+name: Web Push
+
+on:
+  workflow_call:
+
+jobs:
+  web-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a token for using with release-please
+        id: release-please-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_RELEASE_PLEASE_ID }}
+          private-key: ${{ secrets.APP_RELEASE_PLEASE_PK }}
+
+      - uses: googleapis/release-please-action@v4
+        id: release_please
+        with:
+          token: ${{ steps.release-please-token.outputs.token }}
+          release-type: simple
+
+      #if we published a release, we will build it and upload it to AWS S3 --------------
+      - name: Checkout
+        uses: actions/checkout@v4
+        if: ${{ success() && steps.release_please.outputs.release_created }}
+
+      - name: Clean install of dependencies
+        run: npm ci
+        if: ${{ success() && steps.release_please.outputs.release_created }}
+
+      - name: Build
+        run: npm run build
+        if: ${{ success() && steps.release_please.outputs.release_created }}
+
+      - name: Create zip file
+        if: ${{ success() && steps.release_please.outputs.release_created }}
+        env:
+          IMAGE_NAME: ${{ github.event.repository.name }}
+          IMAGE_VERSION: v${{ steps.release_please.outputs.major }}.${{ steps.release_please.outputs.minor }}.${{ steps.release_please.outputs.patch }}
+        working-directory: ${{ vars.BUILD_BASE_DIRECTORY }}
+        run: |
+          zip -r $IMAGE_NAME-$IMAGE_VERSION.zip .
+
+      - name: Configure AWS credentials
+        if: ${{ success() && steps.release_please.outputs.release_created }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_S3_WRITE_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_S3_WRITE_KEY_VALUE }}
+          aws-region: ${{ vars.AWS_S3_REGION_FOR_IMAGES }}
+
+      - name: Upload zip to S3 (PRD)
+        if: ${{ success() && steps.release_please.outputs.release_created }}
+        env:
+          IMAGE_NAME: ${{ github.event.repository.name }}
+          IMAGE_VERSION: v${{ steps.release_please.outputs.major }}.${{ steps.release_please.outputs.minor }}.${{ steps.release_please.outputs.patch }}
+        working-directory: ${{ vars.BUILD_BASE_DIRECTORY }}
+        run: |
+          aws s3 cp $IMAGE_NAME-$IMAGE_VERSION.zip s3://${{ vars.AWS_S3_IMAGES_BUCKET_NAME_PRD }}
+
+      - name: Upload zip to S3 (SBX)
+        if: ${{ success() && steps.release_please.outputs.release_created }}
+        env:
+          IMAGE_NAME: ${{ github.event.repository.name }}
+          IMAGE_VERSION: v${{ steps.release_please.outputs.major }}.${{ steps.release_please.outputs.minor }}.${{ steps.release_please.outputs.patch }}
+        working-directory: ${{ vars.BUILD_BASE_DIRECTORY }}
+        run: |
+          aws s3 cp $IMAGE_NAME-$IMAGE_VERSION.zip s3://${{ vars.AWS_S3_IMAGES_BUCKET_NAME_SBX }}

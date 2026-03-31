@@ -1,0 +1,64 @@
+name: Golang Linter
+
+on:
+  pull_request:
+    branches: [disabled] #this should only run as a ruleset workflow
+
+env:
+  GOPRIVATE: github.com/GustavoNetoOrg
+
+jobs:
+  golang-linter:
+    runs-on: ubuntu-latest
+    steps:
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        if: ${{ success() }}
+        with:
+          go-version: ${{ vars.GOLANG_VERSION }}
+          cache: true
+
+      - run: go version
+        if: ${{ success() }}
+
+      - name: Generate a token for accessing private repositories
+        if: ${{ success() }}
+        id: private-repos-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_READ_ALL_REPOS_ID }}
+          private-key: ${{ secrets.APP_READ_ALL_REPOS_PK }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Grant access to private Go Modules
+        if: ${{ success() }}
+        run: git config --global url."https://gustavonetoorg:${{ steps.private-repos-token.outputs.token }}@github.com/GustavoNetoOrg".insteadOf "https://github.com/GustavoNetoOrg"
+
+      - name: Remove any golangci-lint configuration files
+        if: ${{ success() }}
+        run: rm -f .golangci.yml
+
+      - name: Download official golangci-lint configuration file
+        if: ${{ success() }}
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: |
+          curl -o .golangci.yml https://raw.githubusercontent.com/GustavoNetoOrg/.github-workflows/main/.golangci.yml
+
+      - name: Get dependencies
+        if: ${{ success() }}
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: go mod download
+
+      - name: Remove .git directory
+        if: ${{ success() }}
+        run: rm -r .git
+
+      - name: Run golangci-lint
+        if: ${{ success() }}
+        uses: golangci/golangci-lint-action@v7
+        with:
+          working-directory: ${{ vars.PATH_TO_GO_MOD }}
+          args: --config=.golangci.yml
+          version: latest

@@ -1,0 +1,23 @@
+name: CloudFormation Linter
+
+on:
+  pull_request:
+    branches: [disabled] #this should only run as a ruleset workflow
+
+jobs:
+  cloudformation-linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Cloud Formation Linter with Latest Version
+        if: ${{ success() }}
+        uses: scottbrenner/cfn-lint-action@v2
+
+      - name: Print Linter Version
+        if: ${{ success() }}
+        run: cfn-lint --version
+
+      - name: Run Linter.
+        if: ${{ success() }}
+        run: cfn-lint -t ./stack.yaml

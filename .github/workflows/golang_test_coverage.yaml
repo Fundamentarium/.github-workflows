@@ -1,0 +1,137 @@
+name: Golang Test Coverage
+
+on:
+  pull_request:
+    branches: [disabled] #this should only run as a ruleset workflow
+
+env:
+  GOPRIVATE: github.com/GustavoNetoOrg
+  AWS_REGION: disabled #to do: manter isto?
+  DB_HOSTNAME: localhost
+  DB_PORT: 5432
+  DB_DATABASE: postgres
+  DB_USERNAME: postgres
+  DB_PASSWORD: password
+
+jobs:
+  golang-test-coverage:
+
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+
+      - name: Print GOLANG_VERSION variable value
+        run: echo "${{ vars.GOLANG_VERSION }}"
+
+      - name: Print GOLANG_MINIMUM_COVERAGE variable value
+        run: echo "${{ vars.GOLANG_MINIMUM_COVERAGE }}"
+
+      - name: Print DB_REPOSITORY_NAME variable value
+        run: echo "${{ vars.DB_REPOSITORY_NAME }}"
+
+      - name: Print PATH_TO_GO_MOD variable value
+        run: echo "${{ vars.PATH_TO_GO_MOD }}"
+
+      - uses: actions/checkout@v4
+
+      - name: Check if test files exist
+        if: ${{ success() }}
+        uses: andstor/file-existence-action@v3
+        with:
+          files: "**/*_test.go"
+          fail: true
+
+      - uses: actions/setup-go@v5
+        if: ${{ success() }}
+        with:
+          go-version: ${{ vars.GOLANG_VERSION }}
+          cache: true
+
+      - run: go version
+        if: ${{ success() }}
+
+      - name: Generate a token for accessing private repositories
+        if: ${{ success() }}
+        id: private-repos-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_READ_ALL_REPOS_ID }}
+          private-key: ${{ secrets.APP_READ_ALL_REPOS_PK }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Grant access to private Go Modules
+        if: ${{ success() }}
+        run: git config --global url."https://gustavonetoorg:${{ steps.private-repos-token.outputs.token }}@github.com/GustavoNetoOrg".insteadOf "https://github.com/GustavoNetoOrg"
+
+      - name: Get dependencies
+        if: ${{ success() }}
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: go mod download
+
+      - name: Build Application
+        if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) }} #Go libraries can't be built
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: go build -ldflags="-s -w" -o ./app/ ./...
+
+      - name: Checkout SQL script for database migration
+        if: ${{ success() && (vars.DB_REPOSITORY_NAME != '') }}
+        uses: actions/checkout@v4
+        with:
+          repository: GustavoNetoOrg/${{ vars.DB_REPOSITORY_NAME }}
+          token: ${{ steps.private-repos-token.outputs.token }}
+          path: .sql-migration-repo
+          sparse-checkout: sql
+
+      - name: Perform database migration
+        if: ${{ success() && (vars.DB_REPOSITORY_NAME != '') }}
+        run: >
+          docker run --rm
+          -v ${{ github.workspace }}/.sql-migration-repo/sql:/flyway/sql
+          --network=host
+          flyway/flyway
+          -url=jdbc:postgresql://localhost:5432/postgres?sslmode=disable
+          -user=postgres
+          -password=password
+          migrate
+
+      - name: Run tests
+        if: ${{ success() }}
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: go test -parallel=1 -p=1 -v -covermode=set -coverprofile=coverage.out ./...
+
+      - name: Remove .git directory
+        if: ${{ success() }}
+        run: rm -r .git
+
+      - name: Copy coverage files if PATH_TO_GO_MOD != ''
+        if: ${{ success() && (vars.PATH_TO_GO_MOD != '') }}
+        run: cp ${{ vars.PATH_TO_GO_MOD }}/coverage.out .
+
+      - name: Convert coverage to lcov
+        if: ${{ success() }}
+        uses: jandelgado/gcov2lcov-action@v1
+        with:
+          infile: coverage.out
+          outfile: coverage.lcov
+
+      - name: Check test coverage
+        if: ${{ success() }}
+        uses: terencetcf/github-actions-lcov-minimum-coverage-checker@v1
+        with:
+          coverage-file: coverage.lcov
+          minimum-coverage: ${{ vars.GOLANG_MINIMUM_COVERAGE }}

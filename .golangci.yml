@@ -1,0 +1,45 @@
+version: "2"
+run:
+  tests: false
+  timeout: 5m
+linters:
+  enable:
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - contextcheck
+    - dogsled
+    - durationcheck
+    - errorlint
+    - forcetypeassert
+    - gocritic
+    - gosec
+    - nakedret
+    - nolintlint
+    - sqlclosecheck
+    - staticcheck
+    - unconvert
+  settings:
+    gocritic:
+      disabled-checks:
+        - commentFormatting
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
