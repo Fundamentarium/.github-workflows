@@ -1,6 +1,6 @@
 # .github-workflows
 
-Public repository containing reusable GitHub Actions workflows, Dockerfiles, and linter configurations for the **GustavoNetoOrg** organization.
+Public repository containing reusable GitHub Actions workflows, Dockerfiles, and linter configurations for the **Fundamentarium** organization.
 
 This repo is public so that workflows can be referenced by org-level rulesets.
 
@@ -37,7 +37,7 @@ on:
     branches: [main]
 jobs:
   push:
-    uses: GustavoNetoOrg/.github-workflows/.github/workflows/golang_push.yaml@main
+    uses: Fundamentarium/.github-workflows/.github/workflows/golang_push.yaml@main
     secrets: inherit
 ```
 
