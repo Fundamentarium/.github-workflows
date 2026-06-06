@@ -44,7 +44,7 @@ jobs:
 
       - name: Grant access to private Go Modules
         if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
-        run: git config --global url."https://gustavonetoorg:${{ steps.private-repos-token.outputs.token }}@github.com/GustavoNetoOrg".insteadOf "https://github.com/GustavoNetoOrg"
+        run: git config --global url."https://fundamentarium:${{ steps.private-repos-token.outputs.token }}@github.com/Fundamentarium".insteadOf "https://github.com/Fundamentarium"
 
       - name: Get dependencies
         if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}
@@ -74,13 +74,13 @@ jobs:
         if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created && startsWith(github.event.repository.name, 'ecs-go-') }}
         working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: |
-          curl -o Dockerfile https://raw.githubusercontent.com/GustavoNetoOrg/.github-workflows/main/Dockerfile-ecs-golang
+          curl -o Dockerfile https://raw.githubusercontent.com/Fundamentarium/.github-workflows/main/Dockerfile-ecs-golang
 
       - name: Download official Dockerfile for lambda-golang
         if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created && startsWith(github.event.repository.name, 'lambda-go-') }}
         working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: |
-          curl -o Dockerfile https://raw.githubusercontent.com/GustavoNetoOrg/.github-workflows/main/Dockerfile-lambda-golang
+          curl -o Dockerfile https://raw.githubusercontent.com/Fundamentarium/.github-workflows/main/Dockerfile-lambda-golang
 
       - name: Configure AWS credentials
         if: ${{ success() && (!startsWith(github.event.repository.name, 'lib-go-')) && steps.release_please.outputs.release_created }}

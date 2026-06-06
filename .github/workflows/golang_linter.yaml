@@ -5,7 +5,7 @@ on:
     branches: [disabled] #this should only run as a ruleset workflow
 
 env:
-  GOPRIVATE: github.com/GustavoNetoOrg
+  GOPRIVATE: github.com/Fundamentarium
 
 jobs:
   golang-linter:
@@ -34,7 +34,7 @@ jobs:
 
       - name: Grant access to private Go Modules
         if: ${{ success() }}
-        run: git config --global url."https://gustavonetoorg:${{ steps.private-repos-token.outputs.token }}@github.com/GustavoNetoOrg".insteadOf "https://github.com/GustavoNetoOrg"
+        run: git config --global url."https://fundamentarium:${{ steps.private-repos-token.outputs.token }}@github.com/Fundamentarium".insteadOf "https://github.com/Fundamentarium"
 
       - name: Remove any golangci-lint configuration files
         if: ${{ success() }}
@@ -44,7 +44,7 @@ jobs:
         if: ${{ success() }}
         working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: |
-          curl -o .golangci.yml https://raw.githubusercontent.com/GustavoNetoOrg/.github-workflows/main/.golangci.yml
+          curl -o .golangci.yml https://raw.githubusercontent.com/Fundamentarium/.github-workflows/main/.golangci.yml
 
       - name: Get dependencies
         if: ${{ success() }}
