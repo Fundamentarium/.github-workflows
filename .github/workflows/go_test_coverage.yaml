@@ -44,7 +44,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ vars.GOLANG_VERSION }}
+          go-version-file: go.mod
           cache: true
 
       - name: Generate a token for accessing private repositories
@@ -59,7 +59,6 @@ jobs:
         run: git config --global url."https://fundamentarium:${{ steps.private-repos-token.outputs.token }}@github.com/Fundamentarium".insteadOf "https://github.com/Fundamentarium"
 
       - name: Get dependencies
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: go mod download
 
       # The token for private modules is stored in ~/.gitconfig by the "Grant access" step.
@@ -71,7 +70,6 @@ jobs:
 
       - name: Build application
         if: ${{ !startsWith(github.event.repository.name, 'lib-go-') }}
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: go build -ldflags="-s -w" -o ./app/ ./...
 
       - name: Checkout SQL script for database migration
@@ -96,14 +94,12 @@ jobs:
           migrate
 
       - name: Run tests
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: go test -parallel=1 -p=1 -v -covermode=set -coverprofile=coverage.out ./...
 
       - name: Remove .git directory
         run: rm -r .git
 
       - name: Check test coverage
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
           echo "Total coverage: ${COVERAGE}%"

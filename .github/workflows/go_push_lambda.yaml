@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-go@v5
         if: steps.release_please.outputs.release_created
         with:
-          go-version: ${{ vars.GOLANG_VERSION }}
+          go-version-file: go.mod
           cache: true
 
       - name: Generate a token for accessing private repositories
@@ -51,7 +51,6 @@ jobs:
 
       - name: Get dependencies
         if: steps.release_please.outputs.release_created
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: go mod download
 
       # The token for private modules is stored in ~/.gitconfig by the "Grant access" step.
@@ -64,7 +63,6 @@ jobs:
 
       - name: Build application
         if: steps.release_please.outputs.release_created
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w" -o ./app ./cmd/main
 
       - name: Remove .git directory
@@ -73,10 +71,7 @@ jobs:
 
       - name: Download Dockerfile
         if: steps.release_please.outputs.release_created
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
-        run: |
-          rm -f Dockerfile
-          curl -o Dockerfile https://raw.githubusercontent.com/Fundamentarium/.github-workflows/main/Dockerfile-lambda-golang
+        run: curl -fo Dockerfile https://raw.githubusercontent.com/Fundamentarium/.github-workflows/main/Dockerfile-lambda-golang
 
       - name: Configure AWS credentials
         if: steps.release_please.outputs.release_created
@@ -92,7 +87,6 @@ jobs:
 
       - name: Build, tag, and push docker image to Amazon ECR
         if: steps.release_please.outputs.release_created
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_NAME: ${{ github.event.repository.name }}
