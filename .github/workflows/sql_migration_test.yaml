@@ -1,4 +1,4 @@
-name: DB Migration Test
+name: SQL Migration Test
 
 on:
   pull_request:
