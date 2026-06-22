@@ -1,13 +1,14 @@
-name: Release Please Push
+name: Go Push Lib
 
 on:
   workflow_call:
 
 jobs:
-  release-please-push:
+  go-push-lib:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Generate a token for using with release-please
+      - name: Generate a token for release-please
         id: release-please-token
         uses: actions/create-github-app-token@v1
         with:
@@ -15,7 +16,6 @@ jobs:
           private-key: ${{ secrets.APP_RELEASE_PLEASE_PK }}
 
       - uses: googleapis/release-please-action@v4
-        id: release_please
         with:
           token: ${{ steps.release-please-token.outputs.token }}
-          release-type: simple
+          release-type: go

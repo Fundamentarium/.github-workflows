@@ -1,0 +1,102 @@
+name: Go Push ECS
+
+on:
+  workflow_call:
+
+env:
+  GOPRIVATE: github.com/Fundamentarium
+
+jobs:
+  go-push-ecs:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Generate a token for release-please
+        id: release-please-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_RELEASE_PLEASE_ID }}
+          private-key: ${{ secrets.APP_RELEASE_PLEASE_PK }}
+
+      - uses: googleapis/release-please-action@v4
+        id: release_please
+        with:
+          token: ${{ steps.release-please-token.outputs.token }}
+          release-type: simple
+
+      - uses: actions/checkout@v4
+        if: steps.release_please.outputs.release_created
+
+      - uses: actions/setup-go@v5
+        if: steps.release_please.outputs.release_created
+        with:
+          go-version: ${{ vars.GOLANG_VERSION }}
+          cache: true
+
+      - name: Generate a token for accessing private repositories
+        if: steps.release_please.outputs.release_created
+        id: private-repos-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_READ_ALL_REPOS_ID }}
+          private-key: ${{ secrets.APP_READ_ALL_REPOS_PK }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Grant access to private Go Modules
+        if: steps.release_please.outputs.release_created
+        run: git config --global url."https://fundamentarium:${{ steps.private-repos-token.outputs.token }}@github.com/Fundamentarium".insteadOf "https://github.com/Fundamentarium"
+
+      - name: Get dependencies
+        if: steps.release_please.outputs.release_created
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: go mod download
+
+      # The token for private modules is stored in ~/.gitconfig by the "Grant access" step.
+      # We revoke it and remove .git before running third-party actions to prevent them
+      # from accessing private repositories. The token is short-lived (1h) and the runner
+      # is destroyed after the job, but this limits exposure during the job itself.
+      - name: Revoke access to private Go Modules
+        if: steps.release_please.outputs.release_created
+        run: git config --global --unset url."https://fundamentarium:${{ steps.private-repos-token.outputs.token }}@github.com/Fundamentarium".insteadOf
+
+      - name: Build application
+        if: steps.release_please.outputs.release_created
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: go build -ldflags="-s -w" -o ./app ./cmd/main
+
+      - name: Remove .git directory
+        if: steps.release_please.outputs.release_created
+        run: rm -r .git
+
+      - name: Download Dockerfile
+        if: steps.release_please.outputs.release_created
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        run: |
+          rm -f Dockerfile
+          curl -o Dockerfile https://raw.githubusercontent.com/Fundamentarium/.github-workflows/main/Dockerfile-ecs-golang
+
+      - name: Configure AWS credentials
+        if: steps.release_please.outputs.release_created
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::047955125748:role/github-actions-ecr-push
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        if: steps.release_please.outputs.release_created
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push docker image to Amazon ECR
+        if: steps.release_please.outputs.release_created
+        working-directory: ${{ vars.PATH_TO_GO_MOD }}
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_NAME: ${{ github.event.repository.name }}
+          IMAGE_VERSION: v${{ steps.release_please.outputs.major }}.${{ steps.release_please.outputs.minor }}.${{ steps.release_please.outputs.patch }}
+        run: |
+          docker build -t $REGISTRY/images:$IMAGE_NAME-$IMAGE_VERSION .
+          docker push $REGISTRY/images:$IMAGE_NAME-$IMAGE_VERSION
