@@ -2,62 +2,42 @@ name: CloudFormation Deploy
 
 on:
   workflow_call:
-    inputs:
-      cloudformation-filename:
-        required: false
-        type: string
-        default: stack.yaml
-      cloudformation-params-override:
-        required: false
-        type: string
 
 jobs:
   cloudformation-deploy:
     name: Deploy to AWS CloudFormation
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials (production environment)
-        if: ${{ success() && startsWith(github.event.repository.name, 'infra-prd-') }}
+      - name: Configure AWS Credentials (production)
+        if: startsWith(github.event.repository.name, 'infra-prd-')
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_CLOUDFORMATION_DEPLOY_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_CLOUDFORMATION_DEPLOY_KEY_VALUE }}
+          role-to-assume: arn:aws:iam::047955125748:role/github-actions-cloudformation-deploy
           aws-region: us-east-1
 
-      - name: Configure AWS Credentials (staging/dev environments)
-        if: ${{ success() && startsWith(github.event.repository.name, 'infra-stg-') }}
+      - name: Configure AWS Credentials (development)
+        if: startsWith(github.event.repository.name, 'infra-dev-')
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_CLOUDFORMATION_DEPLOY_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_CLOUDFORMATION_DEPLOY_KEY_VALUE }}
+          role-to-assume: arn:aws:iam::047955125748:role/github-actions-cloudformation-deploy
           aws-region: us-east-2
 
-      - name: Configure AWS Credentials (sandbox environment)
-        if: ${{ success() && startsWith(github.event.repository.name, 'infra-sbx-') }}
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_CLOUDFORMATION_DEPLOY_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_CLOUDFORMATION_DEPLOY_KEY_VALUE }}
-          aws-region: us-west-2
+      - name: Verify environment prefix
+        if: ${{ !startsWith(github.event.repository.name, 'infra-prd-') && !startsWith(github.event.repository.name, 'infra-dev-') }}
+        run: |
+          echo "::error::Repository '${GITHUB_REPOSITORY#*/}' does not match any known environment prefix (infra-prd-*, infra-dev-*)."
+          exit 1
 
       - name: Deploy to AWS CloudFormation
-        if: ${{ success() && (inputs.cloudformation-params-override == '')}}
         uses: aws-actions/aws-cloudformation-github-deploy@v1
         with:
           name: ${{ github.event.repository.name }}
-          template: ${{ inputs.cloudformation-filename }}
+          template: stack.yaml
           no-fail-on-empty-changeset: "1"
           capabilities: CAPABILITY_NAMED_IAM
-
-      - name: Deploy to AWS CloudFormation (params-override)
-        if: ${{ success() && !(inputs.cloudformation-params-override == '')}}
-        uses: aws-actions/aws-cloudformation-github-deploy@v1
-        with:
-          name: ${{ github.event.repository.name }}
-          template: ${{ inputs.cloudformation-filename }}
-          no-fail-on-empty-changeset: "1"
-          capabilities: CAPABILITY_NAMED_IAM
-          parameter-overrides: ${{ inputs.cloudformation-params-override }}
