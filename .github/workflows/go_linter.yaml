@@ -15,7 +15,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ vars.GOLANG_VERSION }}
+          go-version-file: go.mod
           cache: true
 
       - name: Generate a token for accessing private repositories
@@ -29,15 +29,10 @@ jobs:
       - name: Grant access to private Go Modules
         run: git config --global url."https://fundamentarium:${{ steps.private-repos-token.outputs.token }}@github.com/Fundamentarium".insteadOf "https://github.com/Fundamentarium"
 
-      - name: Remove any golangci-lint configuration files
-        run: rm -f .golangci.yml
-
-      - name: Download official golangci-lint configuration file
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
-        run: curl -o .golangci.yml https://raw.githubusercontent.com/Fundamentarium/.github-workflows/main/.golangci.yml
+      - name: Download official golangci-lint configuration
+        run: curl -fo .golangci.yml https://raw.githubusercontent.com/Fundamentarium/.github-workflows/main/.golangci.yml
 
       - name: Get dependencies
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: go mod download
 
       # The token for private modules is stored in ~/.gitconfig by the "Grant access" step.
@@ -53,6 +48,5 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          working-directory: ${{ vars.PATH_TO_GO_MOD }}
           args: --config=.golangci.yml
           version: latest

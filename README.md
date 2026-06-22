@@ -8,16 +8,17 @@ This repo is public so that workflows can be referenced by org-level rulesets.
 
 | Workflow | Type | Description |
 |---|---|---|
+| `check_pr_title` | PR check | Validate PR title follows semantic commit format |
+| `cloudformation_deploy` | Reusable | Deploy CloudFormation stacks to AWS via OIDC (prd/dev) |
 | `cloudformation_linter` | PR check | Lint CloudFormation templates (`stack.yaml`) |
-| `cloudformation_deploy` | Reusable | Deploy CloudFormation stacks to AWS (prd/stg/sbx) |
-| `golang_linter` | PR check | Go code linting with golangci-lint |
-| `golang_test_coverage` | PR check | Go tests with minimum coverage + database migration |
-| `golang_push` | Reusable | Release Please + build + push Docker image to ECR |
-| `web_test_build` | PR check | Validate web app build (`npm ci && npm run build`) |
-| `web_push` | Reusable | Release Please + build + upload zip to S3 |
-| `db_sql_migration_test` | PR check | Test SQL migrations with Flyway + PostgreSQL |
-| `release_please_check_pr_title` | PR check | Validate PR title follows semantic commit format |
-| `release_please_push` | Reusable | Run Release Please to create releases |
+| `go_linter` | PR check | Go code linting with golangci-lint |
+| `go_test_coverage` | PR check | Go tests with minimum coverage + database migration |
+| `go_push_lambda` | Reusable | Release Please → cross-compile → Docker → ECR push |
+| `go_push_ecs` | Reusable | Release Please → build → Docker → ECR push |
+| `go_push_lib` | Reusable | Release Please only (versioning, no build) |
+| `go_push_tool` | Reusable | Release Please → GoReleaser (multi-platform binaries) |
+| `spa_test_build` | PR check | Validate SPA build (`npm ci` + `npm run build`) |
+| `sql_migration_test` | PR check | Test SQL migrations with Flyway + PostgreSQL |
 
 ## Configs and Dockerfiles
 
@@ -27,18 +28,21 @@ This repo is public so that workflows can be referenced by org-level rulesets.
 
 ## Usage
 
-Workflows with `workflow_call` trigger are called from org repos:
+Reusable workflows (`workflow_call`) are called from consuming repos:
 
 ```yaml
-# .github/workflows/push.yaml in the consuming repo
+# .github/workflows/push.yaml
 name: Push
 on:
   push:
     branches: [main]
 jobs:
   push:
-    uses: Fundamentarium/.github-workflows/.github/workflows/golang_push.yaml@main
+    uses: Fundamentarium/.github-workflows/.github/workflows/go_push_lambda.yaml@main
     secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
 ```
 
-Workflows with `pull_request` trigger (branches: [disabled]) are executed via GitHub Rulesets configured at the org level.
+PR check workflows (`pull_request`, `branches: [disabled]`) are executed via GitHub Rulesets configured at the org level.

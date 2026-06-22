@@ -1,11 +1,11 @@
-name: Web Test Build
+name: SPA Test Build
 
 on:
   pull_request:
-    branches: [disabled] #this should only run as a ruleset workflow
+    branches: [disabled]
 
 jobs:
-  web-test-build:
+  spa-test-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

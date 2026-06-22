@@ -36,14 +36,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check if test files exist
-        uses: andstor/file-existence-action@v3
-        with:
-          files: "**/*_test.go"
-          fail: true
+        run: |
+          if ! find . -name '*_test.go' | grep -q .; then
+            echo "::error::No test files found"
+            exit 1
+          fi
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ vars.GOLANG_VERSION }}
+          go-version-file: go.mod
           cache: true
 
       - name: Generate a token for accessing private repositories
@@ -58,7 +59,6 @@ jobs:
         run: git config --global url."https://fundamentarium:${{ steps.private-repos-token.outputs.token }}@github.com/Fundamentarium".insteadOf "https://github.com/Fundamentarium"
 
       - name: Get dependencies
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: go mod download
 
       # The token for private modules is stored in ~/.gitconfig by the "Grant access" step.
@@ -70,7 +70,6 @@ jobs:
 
       - name: Build application
         if: ${{ !startsWith(github.event.repository.name, 'lib-go-') }}
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: go build -ldflags="-s -w" -o ./app/ ./...
 
       - name: Checkout SQL script for database migration
@@ -95,24 +94,17 @@ jobs:
           migrate
 
       - name: Run tests
-        working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: go test -parallel=1 -p=1 -v -covermode=set -coverprofile=coverage.out ./...
 
       - name: Remove .git directory
         run: rm -r .git
 
-      - name: Copy coverage files if PATH_TO_GO_MOD != ''
-        if: ${{ vars.PATH_TO_GO_MOD != '' }}
-        run: cp ${{ vars.PATH_TO_GO_MOD }}/coverage.out .
-
-      - name: Convert coverage to lcov
-        uses: jandelgado/gcov2lcov-action@v1
-        with:
-          infile: coverage.out
-          outfile: coverage.lcov
-
       - name: Check test coverage
-        uses: terencetcf/github-actions-lcov-minimum-coverage-checker@v1
-        with:
-          coverage-file: coverage.lcov
-          minimum-coverage: ${{ vars.GOLANG_MINIMUM_COVERAGE }}
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          echo "Total coverage: ${COVERAGE}%"
+          MINIMUM=${{ vars.GOLANG_MINIMUM_COVERAGE }}
+          if [ "$(echo "$COVERAGE < $MINIMUM" | bc)" -eq 1 ]; then
+            echo "::error::Coverage ${COVERAGE}% is below minimum ${MINIMUM}%"
+            exit 1
+          fi

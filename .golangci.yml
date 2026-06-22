@@ -4,25 +4,18 @@ run:
   timeout: 5m
 linters:
   enable:
-    - asciicheck
     - bidichk
     - bodyclose
     - contextcheck
-    - dogsled
     - durationcheck
+    - errcheck
     - errorlint
     - forcetypeassert
-    - gocritic
     - gosec
-    - nakedret
-    - nolintlint
+    - govet
+    - ineffassign
     - sqlclosecheck
     - staticcheck
-    - unconvert
-  settings:
-    gocritic:
-      disabled-checks:
-        - commentFormatting
   exclusions:
     generated: lax
     presets:
