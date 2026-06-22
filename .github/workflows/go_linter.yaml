@@ -1,30 +1,24 @@
-name: Golang Linter
+name: Go Linter
 
 on:
   pull_request:
-    branches: [disabled] #this should only run as a ruleset workflow
+    branches: [disabled]
 
 env:
   GOPRIVATE: github.com/Fundamentarium
 
 jobs:
-  golang-linter:
+  go-linter:
     runs-on: ubuntu-latest
     steps:
-
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
-        if: ${{ success() }}
         with:
           go-version: ${{ vars.GOLANG_VERSION }}
           cache: true
 
-      - run: go version
-        if: ${{ success() }}
-
       - name: Generate a token for accessing private repositories
-        if: ${{ success() }}
         id: private-repos-token
         uses: actions/create-github-app-token@v1
         with:
@@ -33,30 +27,30 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Grant access to private Go Modules
-        if: ${{ success() }}
         run: git config --global url."https://fundamentarium:${{ steps.private-repos-token.outputs.token }}@github.com/Fundamentarium".insteadOf "https://github.com/Fundamentarium"
 
       - name: Remove any golangci-lint configuration files
-        if: ${{ success() }}
         run: rm -f .golangci.yml
 
       - name: Download official golangci-lint configuration file
-        if: ${{ success() }}
         working-directory: ${{ vars.PATH_TO_GO_MOD }}
-        run: |
-          curl -o .golangci.yml https://raw.githubusercontent.com/Fundamentarium/.github-workflows/main/.golangci.yml
+        run: curl -o .golangci.yml https://raw.githubusercontent.com/Fundamentarium/.github-workflows/main/.golangci.yml
 
       - name: Get dependencies
-        if: ${{ success() }}
         working-directory: ${{ vars.PATH_TO_GO_MOD }}
         run: go mod download
 
+      # The token for private modules is stored in ~/.gitconfig by the "Grant access" step.
+      # We revoke it and remove .git before running third-party actions to prevent them
+      # from accessing private repositories. The token is short-lived (1h) and the runner
+      # is destroyed after the job, but this limits exposure during the job itself.
+      - name: Revoke access to private Go Modules
+        run: git config --global --unset url."https://fundamentarium:${{ steps.private-repos-token.outputs.token }}@github.com/Fundamentarium".insteadOf
+
       - name: Remove .git directory
-        if: ${{ success() }}
         run: rm -r .git
 
       - name: Run golangci-lint
-        if: ${{ success() }}
         uses: golangci/golangci-lint-action@v7
         with:
           working-directory: ${{ vars.PATH_TO_GO_MOD }}

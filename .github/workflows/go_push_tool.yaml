@@ -1,0 +1,58 @@
+name: Go Push Tool
+
+on:
+  workflow_call:
+
+env:
+  GOPRIVATE: github.com/Fundamentarium
+
+jobs:
+  go-push-tool:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate a token for release-please
+        id: release-please-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_RELEASE_PLEASE_ID }}
+          private-key: ${{ secrets.APP_RELEASE_PLEASE_PK }}
+
+      - uses: googleapis/release-please-action@v4
+        id: release_please
+        with:
+          token: ${{ steps.release-please-token.outputs.token }}
+          release-type: go
+
+      - uses: actions/checkout@v4
+        if: steps.release_please.outputs.release_created
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        if: steps.release_please.outputs.release_created
+        with:
+          go-version: ${{ vars.GOLANG_VERSION }}
+          cache: true
+
+      - name: Generate a token for accessing private repositories
+        if: steps.release_please.outputs.release_created
+        id: private-repos-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.APP_READ_ALL_REPOS_ID }}
+          private-key: ${{ secrets.APP_READ_ALL_REPOS_PK }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Grant access to private Go Modules
+        if: steps.release_please.outputs.release_created
+        run: git config --global url."https://fundamentarium:${{ steps.private-repos-token.outputs.token }}@github.com/Fundamentarium".insteadOf "https://github.com/Fundamentarium"
+
+      - name: Run GoReleaser
+        if: steps.release_please.outputs.release_created
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ steps.release-please-token.outputs.token }}
