@@ -11,16 +11,16 @@ jobs:
   go-linter:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Generate a token for accessing private repositories
         id: private-repos-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.APP_READ_ALL_REPOS_ID }}
           private-key: ${{ secrets.APP_READ_ALL_REPOS_PK }}
@@ -46,7 +46,7 @@ jobs:
         run: rm -r .git
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v9
         with:
           args: --config=.golangci.yml
           version: latest
