@@ -13,23 +13,23 @@ jobs:
     steps:
       - name: Generate a token for release-please
         id: release-please-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.APP_RELEASE_PLEASE_ID }}
           private-key: ${{ secrets.APP_RELEASE_PLEASE_PK }}
 
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         id: release_please
         with:
           token: ${{ steps.release-please-token.outputs.token }}
           release-type: go
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.release_please.outputs.release_created
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         if: steps.release_please.outputs.release_created
         with:
           go-version-file: go.mod
@@ -38,7 +38,7 @@ jobs:
       - name: Generate a token for accessing private repositories
         if: steps.release_please.outputs.release_created
         id: private-repos-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.APP_READ_ALL_REPOS_ID }}
           private-key: ${{ secrets.APP_READ_ALL_REPOS_PK }}
@@ -50,7 +50,7 @@ jobs:
 
       - name: Run GoReleaser
         if: steps.release_please.outputs.release_created
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
           args: release --clean
