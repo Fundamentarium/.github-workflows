@@ -14,16 +14,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Temporary: prints the OIDC token claims (never the token itself) to
+      # diagnose the sts:AssumeRoleWithWebIdentity trust policy mismatch.
+      - name: Debug OIDC claims
+        run: |
+          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
+          echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '{sub, aud, iss, ref, repository, environment, event_name}'
+
       - name: Configure AWS Credentials (production)
         if: startsWith(github.event.repository.name, 'infra-prd-')
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::047955125748:role/github-actions-cloudformation-deploy
           aws-region: us-east-1
 
       - name: Configure AWS Credentials (development)
         if: startsWith(github.event.repository.name, 'infra-dev-')
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::047955125748:role/github-actions-cloudformation-deploy
           aws-region: us-east-2
