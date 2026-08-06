@@ -22,7 +22,7 @@ jobs:
         id: private-repos-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.APP_READ_ALL_REPOS_ID }}
+          client-id: ${{ vars.READ_ALL_REPOS_CLIENT_ID }}
           private-key: ${{ secrets.APP_READ_ALL_REPOS_PK }}
           owner: ${{ github.repository_owner }}
 
