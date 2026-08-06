@@ -15,7 +15,7 @@ jobs:
         id: release-please-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.APP_RELEASE_PLEASE_ID }}
+          client-id: ${{ vars.RELEASE_PLEASE_CLIENT_ID }}
           private-key: ${{ secrets.APP_RELEASE_PLEASE_PK }}
 
       - uses: googleapis/release-please-action@v5
@@ -40,7 +40,7 @@ jobs:
         id: private-repos-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.APP_READ_ALL_REPOS_ID }}
+          client-id: ${{ vars.READ_ALL_REPOS_CLIENT_ID }}
           private-key: ${{ secrets.APP_READ_ALL_REPOS_PK }}
           owner: ${{ github.repository_owner }}
 
