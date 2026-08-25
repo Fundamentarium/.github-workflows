@@ -40,10 +40,16 @@ jobs:
 
       - run: npm ci
 
-      - name: Deploy
+      - name: Deploy (production)
+        if: startsWith(github.event.repository.name, 'cf-pages-prd-')
         env:
-          CLOUDFLARE_API_TOKEN: ${{ startsWith(github.event.repository.name, 'cf-pages-prd-') && secrets.CLOUDFLARE_PRD_API_TOKEN || secrets.CLOUDFLARE_DEV_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ startsWith(github.event.repository.name, 'cf-pages-prd-') && vars.CLOUDFLARE_PRD_ACCOUNT_ID || vars.CLOUDFLARE_DEV_ACCOUNT_ID }}
-        run: |
-          source deploy.env
-          npx wrangler pages deploy dist --project-name="$PROJECT_NAME"
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PRD_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_PRD_ACCOUNT_ID }}
+        run: npx wrangler deploy
+
+      - name: Deploy (development)
+        if: startsWith(github.event.repository.name, 'cf-pages-dev-')
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_DEV_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_DEV_ACCOUNT_ID }}
+        run: npx wrangler deploy
