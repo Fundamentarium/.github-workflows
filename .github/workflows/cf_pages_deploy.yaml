@@ -1,0 +1,49 @@
+name: Cloudflare Pages Deploy
+
+on:
+  workflow_call:
+
+jobs:
+  cf-pages-deploy:
+    name: Deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Verify environment prefix
+        if: ${{ !startsWith(github.event.repository.name, 'cf-pages-prd-') && !startsWith(github.event.repository.name, 'cf-pages-dev-') }}
+        run: |
+          echo "::error::Repository '${GITHUB_REPOSITORY#*/}' does not match any known environment prefix (cf-pages-prd-*, cf-pages-dev-*)."
+          exit 1
+
+      - name: Generate a token for accessing private repositories
+        id: private-repos-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.READ_ALL_REPOS_CLIENT_ID }}
+          private-key: ${{ secrets.APP_READ_ALL_REPOS_PK }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Download and extract build
+        env:
+          GH_TOKEN: ${{ steps.private-repos-token.outputs.token }}
+        run: |
+          source deploy.env
+          gh release download "$VERSION" -R "${{ github.repository_owner }}/$SOURCE_REPO" -p "*.zip" -D dist-download --clobber
+          mkdir -p dist
+          unzip -o dist-download/*.zip -d dist
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ startsWith(github.event.repository.name, 'cf-pages-prd-') && secrets.CLOUDFLARE_PRD_API_TOKEN || secrets.CLOUDFLARE_DEV_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ startsWith(github.event.repository.name, 'cf-pages-prd-') && vars.CLOUDFLARE_PRD_ACCOUNT_ID || vars.CLOUDFLARE_DEV_ACCOUNT_ID }}
+        run: |
+          source deploy.env
+          npx wrangler pages deploy dist --project-name="$PROJECT_NAME"
