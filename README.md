@@ -9,20 +9,26 @@ This repo is public so that workflows can be referenced by org-level rulesets.
 | Workflow | Type | Description |
 |---|---|---|
 | `check_pr_title` | PR check | Validate PR title follows semantic commit format |
-| `cloudformation_deploy` | Reusable | Deploy CloudFormation stacks to AWS via OIDC (prd/dev) |
 | `cloudformation_linter` | PR check | Lint CloudFormation templates (`stack.yaml`) |
 | `go_linter` | PR check | Go code linting with golangci-lint |
 | `go_test_coverage` | PR check | Go tests with minimum coverage + database migration |
+| `spa_test_build` | PR check | Validate SPA build (`npm ci` + `npm run build`) |
+| `sql_migration_test` | PR check | Test SQL migrations with Flyway + PostgreSQL |
+| `ts_worker_build_test` | PR check | Build and test a TypeScript Worker (`npm run build` + `npm test`) |
+| `ts_worker_linter` | PR check | Lint a TypeScript Worker with ESLint |
+| `cf_pages_deploy` | Reusable | Download release build → deploy to Cloudflare Pages (prd/dev) |
+| `cf_worker_deploy` | Reusable | Download release build → deploy to Cloudflare Workers (prd/dev) |
+| `cloudformation_deploy` | Reusable | Deploy CloudFormation stacks to AWS via OIDC (prd/dev) |
 | `go_push_lambda` | Reusable | Release Please → cross-compile → Docker → ECR push |
 | `go_push_ecs` | Reusable | Release Please → build → Docker → ECR push |
 | `go_push_lib` | Reusable | Release Please only (versioning, no build) |
 | `go_push_tool` | Reusable | Release Please → GoReleaser (multi-platform binaries) |
-| `spa_test_build` | PR check | Validate SPA build (`npm ci` + `npm run build`) |
-| `sql_migration_test` | PR check | Test SQL migrations with Flyway + PostgreSQL |
+| `spa_push` | Reusable | Release Please → build → zip → attach to GitHub release |
 
 ## Configs and Dockerfiles
 
 - `.golangci.yml` — Official golangci-lint configuration
+- `eslint.config.worker.mjs` — Official ESLint configuration for TypeScript Workers
 - `Dockerfile-ecs-golang` — Distroless image for Go ECS services
 - `Dockerfile-lambda-golang` — AWS Lambda runtime for Go
 
