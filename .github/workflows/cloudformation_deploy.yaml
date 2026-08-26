@@ -15,23 +15,23 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Configure AWS Credentials (production)
-        if: startsWith(github.event.repository.name, 'infra-prd-')
+        if: startsWith(github.event.repository.name, 'infra-aws-prd-')
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::047955125748:role/github-actions-cloudformation-deploy
           aws-region: us-east-1
 
       - name: Configure AWS Credentials (development)
-        if: startsWith(github.event.repository.name, 'infra-dev-')
+        if: startsWith(github.event.repository.name, 'infra-aws-dev-')
         uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::047955125748:role/github-actions-cloudformation-deploy
           aws-region: us-east-2
 
       - name: Verify environment prefix
-        if: ${{ !startsWith(github.event.repository.name, 'infra-prd-') && !startsWith(github.event.repository.name, 'infra-dev-') }}
+        if: ${{ !startsWith(github.event.repository.name, 'infra-aws-prd-') && !startsWith(github.event.repository.name, 'infra-aws-dev-') }}
         run: |
-          echo "::error::Repository '${GITHUB_REPOSITORY#*/}' does not match any known environment prefix (infra-prd-*, infra-dev-*)."
+          echo "::error::Repository '${GITHUB_REPOSITORY#*/}' does not match any known environment prefix (infra-aws-prd-*, infra-aws-dev-*)."
           exit 1
 
       - name: Deploy to AWS CloudFormation
